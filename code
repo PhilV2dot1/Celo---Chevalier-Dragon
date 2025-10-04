@@ -1,0 +1,154 @@
+/ SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract ChevalierVsDragon {
+    
+    struct Chevalier {
+        string nom;
+        uint256 pointsDeVie;
+        uint256 attaque;
+        uint256 defense;
+        bool existe;
+    }
+    
+    struct Dragon {
+        string nom;
+        uint256 pointsDeVie;
+        uint256 attaque;
+        uint256 defense;
+        bool estVivant;
+    }
+    
+    // Mapping des chevaliers par adresse
+    mapping(address => Chevalier) public chevaliers;
+    
+    // Dragon unique dans le jeu
+    Dragon public dragon;
+    
+    // Historique des combats
+    event ChevalierCree(address indexed joueur, string nom);
+    event AttaqueLancee(address indexed attaquant, uint256 degats, uint256 pvRestantsDragon);
+    event DragonVaincu(address indexed vainqueur, string nomChevalier);
+    event ChevalierBlesse(address indexed chevalier, uint256 degatsRecus, uint256 pvRestants);
+    event DragonRessuscite(string nom, uint256 pointsDeVie);
+    
+    constructor() {
+        // Initialisation du dragon
+        dragon = Dragon({
+            nom: "Smaug le Terrible",
+            pointsDeVie: 1000,
+            attaque: 50,
+            defense: 30,
+            estVivant: true
+        });
+    }
+    
+    // Créer un chevalier
+    function creerChevalier(string memory _nom) public {
+        require(!chevaliers[msg.sender].existe, "Vous avez deja un chevalier");
+        require(bytes(_nom).length > 0, "Le nom ne peut pas etre vide");
+        
+        chevaliers[msg.sender] = Chevalier({
+            nom: _nom,
+            pointsDeVie: 100,
+            attaque: 30,
+            defense: 20,
+            existe: true
+        });
+        
+        emit ChevalierCree(msg.sender, _nom);
+    }
+    
+    // Attaquer le dragon
+    function attaquerDragon() public {
+        require(chevaliers[msg.sender].existe, "Vous devez d'abord creer un chevalier");
+        require(chevaliers[msg.sender].pointsDeVie > 0, "Votre chevalier est mort");
+        require(dragon.estVivant, "Le dragon est deja vaincu");
+        
+        Chevalier storage chevalier = chevaliers[msg.sender];
+        
+        // Calcul des dégâts infligés au dragon
+        uint256 degatsAuDragon = chevalier.attaque > dragon.defense ? 
+            chevalier.attaque - dragon.defense : 1;
+        
+        // Application des dégâts au dragon
+        if (dragon.pointsDeVie > degatsAuDragon) {
+            dragon.pointsDeVie -= degatsAuDragon;
+            emit AttaqueLancee(msg.sender, degatsAuDragon, dragon.pointsDeVie);
+        } else {
+            dragon.pointsDeVie = 0;
+            dragon.estVivant = false;
+            emit DragonVaincu(msg.sender, chevalier.nom);
+            return; // Le dragon est vaincu, pas de contre-attaque
+        }
+        
+        // Contre-attaque du dragon
+        uint256 degatsAuChevalier = dragon.attaque > chevalier.defense ? 
+            dragon.attaque - chevalier.defense : 1;
+        
+        if (chevalier.pointsDeVie > degatsAuChevalier) {
+            chevalier.pointsDeVie -= degatsAuChevalier;
+        } else {
+            chevalier.pointsDeVie = 0;
+        }
+        
+        emit ChevalierBlesse(msg.sender, degatsAuChevalier, chevalier.pointsDeVie);
+    }
+    
+    // Soigner son chevalier
+    function soignerChevalier() public {
+        require(chevaliers[msg.sender].existe, "Vous n'avez pas de chevalier");
+        require(chevaliers[msg.sender].pointsDeVie > 0, "Votre chevalier est mort");
+        
+        chevaliers[msg.sender].pointsDeVie = 100;
+    }
+    
+    // Améliorer l'attaque du chevalier
+    function ameliorerAttaque() public {
+        require(chevaliers[msg.sender].existe, "Vous n'avez pas de chevalier");
+        require(chevaliers[msg.sender].pointsDeVie > 0, "Votre chevalier est mort");
+        
+        chevaliers[msg.sender].attaque += 10;
+    }
+    
+    // Améliorer la défense du chevalier
+    function ameliorerDefense() public {
+        require(chevaliers[msg.sender].existe, "Vous n'avez pas de chevalier");
+        require(chevaliers[msg.sender].pointsDeVie > 0, "Votre chevalier est mort");
+        
+        chevaliers[msg.sender].defense += 10;
+    }
+    
+    // Ressusciter le dragon (fonction admin pour recommencer le jeu)
+    function ressusciterDragon() public {
+        require(!dragon.estVivant, "Le dragon est toujours vivant");
+        
+        dragon.pointsDeVie = 1000;
+        dragon.estVivant = true;
+        
+        emit DragonRessuscite(dragon.nom, dragon.pointsDeVie);
+    }
+    
+    // Obtenir les stats du chevalier
+    function obtenirStatsChevalier(address _joueur) public view returns (
+        string memory nom,
+        uint256 pointsDeVie,
+        uint256 attaque,
+        uint256 defense,
+        bool existe
+    ) {
+        Chevalier memory c = chevaliers[_joueur];
+        return (c.nom, c.pointsDeVie, c.attaque, c.defense, c.existe);
+    }
+    
+    // Obtenir les stats du dragon
+    function obtenirStatsDragon() public view returns (
+        string memory nom,
+        uint256 pointsDeVie,
+        uint256 attaque,
+        uint256 defense,
+        bool estVivant
+    ) {
+        return (dragon.nom, dragon.pointsDeVie, dragon.attaque, dragon.defense, dragon.estVivant);
+    }
+}
